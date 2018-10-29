@@ -8,7 +8,7 @@ Game = {}
 local WIDTH = 100
 local HEIGHT = 65
 local SIZE = 9
-local LINE_WIDTH = 3
+local LINE_WIDTH = 2
 local LINE_STYLE = "rough"
 
 function love.load()
@@ -17,7 +17,11 @@ function love.load()
 end
 
 function love.draw()
-  Game.maze:draw(10, 10, SIZE)
+  local w = WIDTH * SIZE + LINE_WIDTH
+  local h = HEIGHT * SIZE + LINE_WIDTH
+  local top = (love.graphics.getWidth() - w) / 2
+  local left = (love.graphics.getHeight() - h) / 2
+  Game.maze:draw(top, left, SIZE)
 end
 
 local interval = 0.01
@@ -81,6 +85,15 @@ function Maze:new(width, height)
   self.maze = self.makeFresh(width, height)
   self.width = width
   self.height = height
+
+  self.marginLeft = 2
+  self.marginTop = 2
+  self.marginRight = 3
+  self.cursorX = self.marginLeft
+  self.cursorY = self.marginTop
+  self.marginHorizontal = 1
+  self.marginVertical = 1
+
   self.wallList = {}
   -- Pick a random cell, make it part of the maze
   local x = math.random(1, self.width)
@@ -94,6 +107,9 @@ function Maze:new(width, height)
       table.insert(self.wallList, {randomCell, d})
     end
   end
+
+  -- self:writeLine("Candy is dandy")
+  -- self:writeLine("But liquor is quicker")
 end
 
 function oppositeWall(direction)
@@ -105,10 +121,26 @@ function oppositeWall(direction)
   })[direction]
 end
 
+function Maze:setWall(x, y, d, isThere)
+  local cell = self.maze[x][y]
+  cell.walls[d] = isThere
+  local neighbor = cell.neighbors[d]
+  if neighbor then
+    neighbor.walls[oppositeWall(d)] = isThere
+  end
+end
+
 function Maze:onePrim()
   -- print("onePrim", #self.wallList)
   -- If wall list is empty then return
   if table.getn(self.wallList) == 0 then
+    self.maze[1][1].visited = true
+    self.maze[1][1].walls.left = false
+    -- self.maze[1][1].walls.right = false
+    self.maze[WIDTH][HEIGHT].visited = true
+    self.maze[WIDTH][HEIGHT].walls.right = false
+    -- self.maze[WIDTH][HEIGHT].walls.left = false
+
     return
   end
 
@@ -182,63 +214,61 @@ function Maze.makeFresh(width, height)
     end
   end
 
-  local function filler(ox, oy)
-    local function fill(x, y)
-      maze[x + ox][y + oy].visited = true
-    end
-    return fill
-  end
-
-  local fill = filler(2, 2)
-  fill(0, 0)
-  fill(0, 1)
-  fill(0, 2)
-  fill(0, 3)
-  fill(0, 4)
-  fill(1, 0)
-  fill(2, 0)
-  fill(1, 2)
-  fill(2, 2)
-  fill(1, 4)
-  fill(2, 4)
-
-  local fill = filler(6, 2)
-  fill(0, 0)
-  fill(4, 0)
-  fill(1, 1)
-  fill(3, 1)
-  fill(0, 4)
-  fill(4, 4)
-  fill(1, 3)
-  fill(3, 3)
-  fill(2, 2)
-
-  local fill = filler(12, 2)
-  fill(0, 0)
-  fill(1, 0)
-  fill(2, 0)
-  fill(0, 1)
-  fill(2, 1)
-  fill(0, 2)
-  fill(1, 2)
-  fill(2, 2)
-  fill(0, 3)
-  fill(0, 4)
-
-  local fill = filler(16, 2)
-  fill(0, 0)
-  fill(1, 0)
-  fill(2, 0)
-  fill(0, 1)
-  fill(2, 1)
-  fill(0, 2)
-  fill(2, 2)
-  fill(0, 3)
-  fill(2, 3)
-  fill(0, 4)
-  fill(1, 4)
-  fill(2, 4)
-
-
   return maze
+end
+
+function Maze:advanceCursor(l)
+  local width = 2
+  local height = 2
+  if l then
+    width = l.width
+    height = l.height
+  end
+  print("cursorX=" .. self.cursorX .. " width=" .. width .. " marginHorizontal=" .. self.marginHorizontal)
+  self.cursorX = self.cursorX + width + self.marginHorizontal
+  if self.cursorX + self.marginRight + 2 >= WIDTH then
+    self:carriageReturn()
+  end
+end
+
+function Maze:carriageReturn()
+  self.cursorX = self.marginLeft
+  self.cursorY = self.cursorY + self.marginVertical + 2
+end
+
+function Maze:writeChar(c)
+  c = string.upper(c)
+  print("writing char " .. c .. " at " .. self.cursorX .. ", " .. self.cursorY)
+  local l = letters[c]
+  if l then
+    -- print(l .. l.height .. l.width)
+    for i = 1, l.width do
+      for j = 1, l.height do
+        local x = self.cursorX + i - 1
+        local y = self.cursorY + j - 1
+        local cell = self.maze[self.cursorX + i - 1][self.cursorY + j - 1]
+        local lc = l.cm[i][j]
+
+        self:setWall(x, y, "top", lc.top)
+        self:setWall(x, y, "bottom", lc.bottom)
+        self:setWall(x, y, "left", lc.left)
+        self:setWall(x, y, "right", lc.right)
+
+        cell.visited = true
+      end
+    end
+  end
+  self:advanceCursor(l)
+end
+
+function Maze:write(s)
+  for i = 1, #s do
+    local c = s:sub(i, i)
+    self:writeChar(c)
+  end
+end
+
+function Maze:writeLine(s)
+  self:write(s)
+  self:carriageReturn()
 end
