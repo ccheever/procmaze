@@ -8,7 +8,7 @@ Game = {}
 local WIDTH = 100
 local HEIGHT = 65
 local SIZE = 9
-local LINE_WIDTH = 2
+local LINE_WIDTH = 3
 local LINE_STYLE = "rough"
 
 function love.load()
